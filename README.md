@@ -418,3 +418,8 @@ To test 6 WGMs on a dataset of 6 with a given gene family:
 - Simulated LRTs: 1 GB, 3h walltime, array job 1-1000
 
 Paralellization is not implemented.
+
+
+## References
+
+Tasdighian S, Van Bel M, Li Z, Van de Peer Y, Carretero-Paulet L, Maere S. Reciprocally Retained Genes in the Angiosperm Lineage Show the Hallmarks of Dosage Balance Sensitivity. Plant Cell. 2017 Nov;29(11):2766-2785. doi: 10.1105/tpc.17.00313. Epub 2017 Oct 23. PMID: 29061868; PMCID: PMC5728127.
