@@ -1,0 +1,5 @@
+SpeciesName	GeneFamily1	GeneFamily2
+C	1	5
+D	2	6	
+E	3	7
+F	4	8

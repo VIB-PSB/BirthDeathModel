@@ -1,61 +1,41 @@
 package be.ugent.psb.setas.bdmodel.model;
 
-/*
- * #%L
- * BirthDeathModel
- * %%
- * Copyright (C) 2017 VIB/PSB/UGent - Setareh Tasdighian
- * %%
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public
- * License along with this program.  If not, see
- * <http://www.gnu.org/licenses/gpl-3.0.html>.
- * #L%
- */
-
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Queue;
+import java.util.Random;
+import java.util.Scanner;
 
-import be.ugent.psb.setas.bdmodel.parsers.ReadGeneFamilycountsFile;
+import be.ugent.psb.setas.bdmodel.parsers.ReadGFcountsFile;
 import be.ugent.psb.setas.bdmodel.parsers.SpeciesTreeParser;
+import be.ugent.psb.setas.independent_parsers.CommonFunctions;
 
-/**
- * This class optimizes lambda for a given species tree, with known branch
- * length, with WGMs placed on the tree and for the gene counts of a particular
- * gene family. The optimization method which is used is called Cutting Plane
- * Methods.
- * 
- * @author setas
- *
- */
 public class CuttingPlaneMethod {
 
-
-	private List<Node> arrayListOfNodesOfTree;
+	private List<Node> aryln;
+	private LikeLihood lk;
 	private int rootSize;
+	private List<List<Integer>> gfCounts;
+	private Node root;
 
 	private final double stepSize;
 	private final double deltaLocalMoves;
 	private final double toleranceDerivative;
-	private final double tolerancelogLikelihood;
+	private final double toleranceF;
 	private final double precisionLambda;
-	private final double minimumIntervalOfLambdas;
-	private final double maximumIntervalOfLambdas;
+	private final double minInterval;
+	private final double maxInterval;
+	private final double minAllowed;
+	private final double maxAllowed;
 	public int counter;
 	private double optimalLambda;
-	private double logLikelihoodOptimalLambda;
-	private TransitionProbabilityCalculator probabilityCalculator;
-	private HashMap<Double, Double> logLikelihoodCache;
+	private double fOptimalLambda;
+	private ProbCalculator probCalc;
+	private HashMap<Double, Double> fCache;
+	// private HashMap<Double, Double> fcombinedLoglkCache;
 
 	public double getDeltaLocalMove() {
 		return deltaLocalMoves;
@@ -73,409 +53,546 @@ public class CuttingPlaneMethod {
 		return optimalLambda;
 	}
 
-	public double getlogLikelihoodOptimalLambda() {
-		return logLikelihoodOptimalLambda;
+	public double getFoptimalLambda() {
+		return fOptimalLambda;
 	}
 
 	public double getMaxInterval() {
-		return this.maximumIntervalOfLambdas;
+		return this.maxInterval;
 	}
 
 	public double getMinInterval() {
-		return minimumIntervalOfLambdas;
+		return minInterval;
 	}
 
 	public CuttingPlaneMethod(List<Node> speciesTree, int rootSize, double stepSize, double deltaLocalMoves,
-			double tolD, double tolF, double minInterval, double maxInterval, double precision,
-			TransitionProbabilityCalculator probCalc) {
+			double tolD, double tolF, double minInterval, double maxInterval, double minAllowed, double maxAllowed,
+			double precision, ProbCalculator probCache) {
 
 		this.stepSize = stepSize;
 		this.deltaLocalMoves = deltaLocalMoves;
 		this.rootSize = rootSize;
 		this.toleranceDerivative = tolD;
-		this.tolerancelogLikelihood = tolF;
-		this.minimumIntervalOfLambdas = minInterval;
-		this.maximumIntervalOfLambdas = maxInterval;
+		this.toleranceF = tolF;
+		this.minInterval = minInterval;
+		this.maxInterval = maxInterval;
+		this.minAllowed = minAllowed;
+		this.maxAllowed = maxAllowed;
 		this.precisionLambda = precision;
-		this.probabilityCalculator = probCalc;
-		this.logLikelihoodCache = new HashMap<Double, Double>();
-		this.arrayListOfNodesOfTree = speciesTree;
+		this.probCalc = probCache;
+		this.fCache = new HashMap();
+		this.aryln = speciesTree;
 	}
 
-	/**
-	 * Calculates the log-likelihood of a given tree, for a given root node size,
-	 * and given lambda.
-	 * 
-	 * @param lambda
-	 * @return
-	 */
-	public double logLikelihood(double lambda) {
-		Double value = logLikelihoodCache.get(lambda);
+	public CuttingPlaneMethod(List<Node> speciesTree, int rootSize, double stepSize, double deltaLocalMoves,
+			double tolD, double tolF, double minInterval, double maxInterval, double minAllowed, double maxAllowed,
+			double precision, ProbCalculator probCache, Node root, List<List<Integer>> gfCounts) {
+
+		this.stepSize = stepSize;
+		this.deltaLocalMoves = deltaLocalMoves;
+		this.rootSize = rootSize;
+		this.toleranceDerivative = tolD;
+		this.toleranceF = tolF;
+		this.minInterval = minInterval;
+		this.maxInterval = maxInterval;
+		this.minAllowed = minAllowed;
+		this.maxAllowed = maxAllowed;
+		this.precisionLambda = precision;
+		this.probCalc = probCache;
+		this.fCache = new HashMap();
+		// this.fcombinedLoglkCache= new HashMap();
+		this.aryln = speciesTree;
+		// this.root = root;
+		// this.gfCounts = gfCounts;
+	}
+
+	public CuttingPlaneMethod(List<Node> speciesTree, int rootSize, double stepSize, double deltaLocalMoves,
+			double tolD, double tolF, double minInterval, double maxInterval, double minAllowed, double maxAllowed,
+			double precision, ProbCalculator probCache, Node root) {
+
+		this.stepSize = stepSize;
+		this.deltaLocalMoves = deltaLocalMoves;
+		this.rootSize = rootSize;
+		this.toleranceDerivative = tolD;
+		this.toleranceF = tolF;
+		this.minInterval = minInterval;
+		this.maxInterval = maxInterval;
+		this.minAllowed = minAllowed;
+		this.maxAllowed = maxAllowed;
+		this.precisionLambda = precision;
+		this.probCalc = probCache;
+		this.fCache = new HashMap();
+		this.aryln = speciesTree;
+		this.root = root;
+	}
+
+	// Original f
+	public double f(double lambda) {
+
+		Double value = fCache.get(lambda);
 		if (value != null) {
 			return value;
 		}
-		CalculateLikeLihoods likelihood = new CalculateLikeLihoods(lambda,
-				arrayListOfNodesOfTree.get(0).getMaxGeneCountAtNode() + 1, probabilityCalculator);
-		double[] lks = likelihood.calculateInternalLikelihoods(arrayListOfNodesOfTree);
+		LikeLihood lk = new LikeLihood(lambda, aryln.get(0).getmaxNodeSize() + 1, probCalc);
+		double[] lks = lk.calcInternalLk(aryln);
 
-		double[] logLikelihoods = MathematicalOperations.giveLogarithm10Array(lks);
-		value = logLikelihoods[rootSize];
-		logLikelihoodCache.put(lambda, value);
-		return logLikelihoods[rootSize];
+		double[] logLks = MathOperations.giveLogArray(lks);
+		value = logLks[rootSize];
+		fCache.put(lambda, value);
+		return logLks[rootSize];
 	}
+	// To calculate the combined loglk
+	// public double f(double lambda ) {
+	// Double value = fcombinedLoglkCache.get(lambda);
+	// if (value != null) {
+	// return value;
+	// }
+	// LikeLihood lk = new LikeLihood(lambda,
+	// aryln.get(0).getmaxNodeSize() + 1, probCalc);
+	// double[] sumLogLks = lk.calcInternalLk_combLogLk(root, gfCounts, 0, 708,
+	// aryln);
+	//
+	// value = sumLogLks[rootSize];
+	//// System.out.println("lambda "+lambda+" sumLoglks: "+value);
+	//
+	// fCache.put(lambda, value);
+	// return sumLogLks[rootSize];
+	// }
 
-	public double forwardDifference(double lambda) {
+	public double forwardDiff(double lambda) {
 		double forwardDiff = 0;
 
-		double loglikelihoodLambda = logLikelihood(lambda);
-		double loglikelihoodLambdaPlusDelta = logLikelihood(lambda + stepSize);
+		double fLambda = f(lambda);
+		double fLambdaPlusDelta = f(lambda + stepSize);
 
-		forwardDiff = (loglikelihoodLambdaPlusDelta - loglikelihoodLambda) / stepSize;
+		forwardDiff = (fLambdaPlusDelta - fLambda) / stepSize;
 
 		return forwardDiff;
 	}
 
-	public double backwardDifference(double lambda) {
+	public double backwardDiff(double lambda) {
 		double backwardDiff = 0;
 
-		double loglikelihoodLambda = logLikelihood(lambda);
-		double logLikelihoodLambdaMinusDelta = logLikelihood(lambda - stepSize);
+		double fLambda = f(lambda);
+		double fLambdaMinusDelta = f(lambda - stepSize);
 
-		backwardDiff = (loglikelihoodLambda - logLikelihoodLambdaMinusDelta) / stepSize;
+		backwardDiff = (fLambda - fLambdaMinusDelta) / stepSize;
 
 		return backwardDiff;
 	}
 
-	/**
-	 * 
-	 * @param lambda:
-	 *            value of SSD/loss rate for which we are calulating the
-	 *            differences/derivatives.
-	 * @param forwardBackward:
-	 *            if equal to 2, we calculate forward difference, if equal to 3 , we
-	 *            calculate backward difference.
-	 * @return    lineChars[0] = lambda; lineChars[1]= f(lambda); lineChars[2]= f'+ (lambda) or  f'-(lambda)
-	 */
-	public double[] findLineCharacteristics(double lambda, int forwardBackward) {
+	public double[] lineChars(double lambda, int fb) {
 
-		double[] lineCharacteristics = new double[3];
+		/**
+		 * lineChars[0] = lambda lineChars[1]= f(lambda) lineChars[2]= f'+ (lambda) or
+		 * f'-(lambda)
+		 */
+		double[] lineChars = new double[3];
 
-		lineCharacteristics[0] = lambda;
-		lineCharacteristics[1] = logLikelihood(lambda);
-		if (forwardBackward == 2) {
-			lineCharacteristics[2] = forwardDifference(lambda);
-		} else if (forwardBackward == 3) {
-			lineCharacteristics[2] = backwardDifference(lambda);
+		lineChars[0] = lambda;
+		lineChars[1] = f(lambda);
+		// fb= 2 means calculate forward derivative and fb =3 means calculate backward
+		// derivative
+		if (fb == 2) {
+			lineChars[2] = forwardDiff(lambda);
+		} else if (fb == 3) {
+			lineChars[2] = backwardDiff(lambda);
 		}
 
-		return lineCharacteristics;
+		return lineChars;
 	}
 
-	/**
-	 * Find the intersection of two lines and project it on the x-axis
-	 * @param line1
-	 * @param line2
-	 * @return
-	 */
 	public double findInterSectionLines(double[] line1, double[] line2) {
+//		System.out.println("begining find Intersection  "+ line1[0]+"\t"+line2[0]);
 
 		double lambdaStar = ((line1[2] * line1[0]) - (line2[2] * line2[0]) + line2[1] - line1[1])
 				/ (line1[2] - line2[2]);
 
-		if (lambdaStar <= this.minimumIntervalOfLambdas) {
-			return minimumIntervalOfLambdas;
-		}
+		double[] noNaN = solveNaN(lambdaStar, line1[0], line2[0]);
+		return noNaN[0]; // lambdaStar_editted
 
-		else if (lambdaStar >= this.maximumIntervalOfLambdas) {
-			return maximumIntervalOfLambdas;
-		}
-
-		return lambdaStar;
-
+//		System.out.println("end find Intersection  "+ lambdaStar+"\t"+line1[0]+"\t"+line2[0]);
+//		return lambdaStar;
 	}
 
-	/**
-	 * Calculates the lambda stars (the intersection of 2 derivative lines) mapped
-	 * on the lambda axis.
-	 * 
-	 * @param lineStar
-	 * @param line1
-	 * @param line2
-	 * @return [lambda*_1 , lambda*_2]
-	 */
-	public double[] calculateLambdaStar(double[] lineStar, double[] line1, double[] line2) {
+	/* returns [lam*_1 , lam*_2] */
+	public double[] calcLambdaStar12(double[] lineStar, double[] line1, double[] line2) {
+//		System.out.println("begining of calc lambda star12 "+lineStar[0]+"\t"+line1[0]+"\t"+line2[0]);	
+		double[] noNaN = solveNaN(lineStar[0], line1[0], line2[0]);
 
-		double[] lambdaStar = new double[2];
+		lineStar = lineChars(noNaN[0], 2);
+		line1 = lineChars(noNaN[1], 2);
+		line2 = lineChars(noNaN[2], 2);
+
+		double[] lambdaStar12 = new double[2];
 		double lambdaStar_1 = findInterSectionLines(lineStar, line1);
 		double lambdaStar_2 = findInterSectionLines(lineStar, line2);
 
-		lambdaStar[0] = lambdaStar_1;
-		lambdaStar[1] = lambdaStar_2;
+		lambdaStar12[0] = lambdaStar_1;
+		lambdaStar12[1] = lambdaStar_2;
 
-		return lambdaStar;
+//		System.out.println("end of calc lambda star12 "+lambdaStar12[0]+"\t"+lambdaStar12[1]);
+		return lambdaStar12;
 	}
 
-	/**
-	 * Find out the value of the three input lambdas maximizes the log likelihood
-	 * function.
-	 * 
-	 * @param lambda1
-	 * @param lambda2
-	 * @param lambdaStar
-	 * @return
-	 */
-	public double argMax(double lambda1, double lambda2, double lambdaStar) {
+	public double argMax(double lam1, double lam2, double lamStar) {
 
-		if (Double.isNaN(lambda1) || Double.isNaN(lambda2) || Double.isNaN(lambdaStar)) {
-			throw new RuntimeException("In Cutting Plane Method: arg max of three lambdas is returned as NaN");
+		if (Double.isNaN(lam1) || Double.isNaN(lam2) || Double.isNaN(lamStar)) {
+			throw new RuntimeException("lambda = NaN");
 		}
 
-		final double loglikelihoodLambda1 = logLikelihood(lambda1);
-		final double logLikelihoodLambdaStar = logLikelihood(lambdaStar);
-		final double logLikelihoodLambda2 = logLikelihood(lambda2);
+		final double fLam1 = f(lam1);
+		final double fLamStar = f(lamStar);
+		final double fLam2 = f(lam2);
 
-		if (loglikelihoodLambda1 <= logLikelihoodLambdaStar && logLikelihoodLambda2 <= logLikelihoodLambdaStar) {
-			return lambdaStar; // sub-optimality si reached
-		} else if (loglikelihoodLambda1 <= logLikelihoodLambdaStar && logLikelihoodLambda2 > logLikelihoodLambdaStar) {
-			return lambda2;
+		if (fLam1 <= fLamStar && fLam2 <= fLamStar) {
+			return lamStar; // sub-optimality
+		} else if (fLam1 <= fLamStar && fLam2 > fLamStar) {
+			return lam2;
 		}
 
-		else if (loglikelihoodLambda1 > logLikelihoodLambdaStar && logLikelihoodLambda2 <= logLikelihoodLambdaStar) {
-			return lambda1;
+		else if (fLam1 > fLamStar && fLam2 <= fLamStar) {
+			return lam1;
 		}
 
-		else if (loglikelihoodLambda1 > logLikelihoodLambdaStar && logLikelihoodLambda2 > logLikelihoodLambdaStar) {
-			if (loglikelihoodLambda1 >= logLikelihoodLambda2) {
-				return lambda1;
+		else if (fLam1 > fLamStar && fLam2 > fLamStar) {
+			if (fLam1 >= fLam2) {
+				return lam1;
 			} else {
-				return lambda2;
+				return lam2;
 			}
 		}
-		System.err.println("argMax = -1 " + lambda1 + "   " + lambda2 + "   " + lambdaStar);
+		System.err.println("argMax = -1 " + lam1 + "   " + lam2 + "   " + lamStar);
 		return -1;
 	}
 
-	/**
-	 * Find out the index of the three input lambdas maximizes the log likelihood
-	 * function.
-	 * 
-	 * @param lambda1
-	 * @param lambda2
-	 * @param lambdaStar
-	 * @return
-	 */
-	public int argMaxIndex(double lambda1, double lambda2, double lambdaStar) {
+	public int argMaxIndex(double lam1, double lam2, double lamStar) {
 
-		if (Double.isNaN(lambda1) || Double.isNaN(lambda2) || Double.isNaN(lambdaStar)) {
+		if (Double.isNaN(lam1) || Double.isNaN(lam2) || Double.isNaN(lamStar)) {
 			throw new RuntimeException("NaN is not good!");
 		}
 
-		final double logLikelihoodambda1 = logLikelihood(lambda1);
-		final double logLikelihoodLambdaStar = logLikelihood(lambdaStar);
-		final double logLikelihoodLambda2 = logLikelihood(lambda2);
+		final double fLam1 = f(lam1);
+		final double fLamStar = f(lamStar);
+		final double fLam2 = f(lam2);
 
-		if (logLikelihoodambda1 <= logLikelihoodLambdaStar && logLikelihoodLambda2 <= logLikelihoodLambdaStar) {
-			return 2; // sub-optimality is reached
+		if (fLam1 <= fLamStar && fLam2 <= fLamStar) {
+			return 2; // sub-optimality
 		}
 
-		else if (logLikelihoodambda1 <= logLikelihoodLambdaStar && logLikelihoodLambda2 > logLikelihoodLambdaStar) {
+		else if (fLam1 <= fLamStar && fLam2 > fLamStar) {
 			return 1;
-		} else if (logLikelihoodambda1 > logLikelihoodLambdaStar && logLikelihoodLambda2 <= logLikelihoodLambdaStar) {
+		} else if (fLam1 > fLamStar && fLam2 <= fLamStar) {
 			return 0;
-		} else if (logLikelihoodambda1 > logLikelihoodLambdaStar && logLikelihoodLambda2 > logLikelihoodLambdaStar) {
+		} else if (fLam1 > fLamStar && fLam2 > fLamStar) {
 
-			if (logLikelihoodambda1 >= logLikelihoodLambda2) {
+			if (fLam1 >= fLam2) {
 				return 0;
 			} else {
 				return 1;
 			}
 		}
-		System.err.println("argMaxIndex = -1 " + lambda1 + "   " + lambda2 + "   " + lambdaStar);
+		System.err.println("argMaxIndex = -1 " + lam1 + "   " + lam2 + "   " + lamStar);
 		return -1;
 	}
 
-	/**
-	 * 
-	 * @param lineStar:
-	 *            line drawn from lambda_star, the intersection of previous L1 and
-	 *            L2 from the begining and end of the previous interval.
-	 * @param lineMin:
-	 *            line drawn for lambda_min at the minimum of the current interval.
-	 * @param lineMax:
-	 *            line drawn for lambda_max at the maximum of the current interval.
-	 * @return array of double as described in {@link lineCharacteristics}
-	 */
-	public double[] calculateLineSubOptimal(double[] lineStar, double[] lineMin, double[] lineMax) {
+	public double[] calcLineSubOptimal(double[] lineStar, double[] lineMin, double[] lineMax) {
 
 		double[] lineSubOptimal = new double[3];
 
 		if (lineStar[0] >= lineMax[0]) {
-			return (findLineCharacteristics(lineMax[0], 3));
+			return (lineChars(lineMax[0], 3));
 		}
 
 		else if (lineStar[0] <= lineMin[0]) {
-			return (findLineCharacteristics(lineMin[0], 2));
+			return (lineChars(lineMin[0], 2));
 		}
 
 		else {
 
-			double[] lambdaStar12 = calculateLambdaStar(lineStar, lineMin, lineMax);
+			double[] lambdaStar12 = calcLambdaStar12(lineStar, lineMin, lineMax);
 			double lambdaTemp = argMax(lineStar[0], lambdaStar12[0], lambdaStar12[1]);
 
+			/* lambdaTemp = lambdaStar */
 			if (isEqual(lambdaTemp, lineStar[0], precisionLambda)) {
 				return (lineStar);
-
 			}
+
+			/*
+			 * lambdaStar is NOT subOptimal, so lambdaStar-new will be lambdaTemp and
+			 * lambdaMinNew and lambdaMaxNew will be lambdaStar1 or lambdaStar2
+			 */
 			else {
+				/* lambdaTemp == lambdaStar*2 */
 				if (isEqual(lambdaTemp, lambdaStar12[1], precisionLambda)) {
 
+					/* Update the Minimum of the interval for the next iteration */
 					double[] lineMinNew = lineStar;
 
-					double[] lineStar2 = findLineCharacteristics(lambdaStar12[1], 2);
+					double[] lineStar2 = lineChars(lambdaStar12[1], 2);
+					double[] lineTemp = lineStar2;
 
-					lineSubOptimal = calculateLineSubOptimal(lineStar2, lineMinNew, lineMax);
+					lineSubOptimal = calcLineSubOptimal(lineTemp, lineMinNew, lineMax);
 				}
 
 				if (isEqual(lambdaTemp, lambdaStar12[0], precisionLambda)) {
 
+					/* Update the Maximum of the interval for the next iteration */
 					double[] lineMaxNew = lineStar;
 
-					double[] lineStar1 = findLineCharacteristics(lambdaStar12[0], 2);
+					double[] lineStar1 = lineChars(lambdaStar12[0], 2);
+					double[] lineTemp = lineStar1;
 
-					lineSubOptimal = calculateLineSubOptimal(lineStar1, lineMin, lineMaxNew);
+					lineSubOptimal = calcLineSubOptimal(lineTemp, lineMin, lineMaxNew);
 				}
 			}
 		}
+
+//		System.out.println("end of calcLambdaSubOpt   "+ lineSubOptimal[0]); 
 		return lineSubOptimal;
 	}
 
-	/**
-	 * 
-	 * @param lambdaSubOptimal:
-	 *            lambda sub-optimal taken from the characteristics of line sub-optimal
-	 *            optimal produced by calcLineSubOptimal.
-	 * @param fb:
-	 *            forward or backward difference
-	 * @param dLocalMoves:
-	 *            delta local moves
-	 * @return
-	 */
-	public double localMoves(double lambdaSubOptimal, int forwardBackward, double deltaLocalMoves) {
+	public double localMoves(double lambdaSubOptimal, int fb, double dLocalMoves) {
 
-		if (lambdaSubOptimal <= minimumIntervalOfLambdas || lambdaSubOptimal >= maximumIntervalOfLambdas) {
-			return lambdaSubOptimal;
+//		System.out.println("begining of local moves   "+lambdaSubOptimal);
+
+		if (lambdaSubOptimal <= minInterval) {
+			return minInterval;
+		} else if (lambdaSubOptimal >= maxInterval) {
+			return maxInterval;
 		} else {
 
-			double[] lineSubOptimal = findLineCharacteristics(lambdaSubOptimal, forwardBackward);
+			double[] lineSubOptimal = lineChars(lambdaSubOptimal, fb);
 
 			if (isEqual(lineSubOptimal[2], 0, toleranceDerivative)) {
 				return lambdaSubOptimal;
 			}
 
-			double deltaLocalMove_signed = deltaLocalMoves;
+			double h = dLocalMoves;
 			if (lineSubOptimal[2] < 0) {
-				deltaLocalMove_signed = (-1) * deltaLocalMoves;
+				h = (-1) * dLocalMoves;
 			}
 
-			double lambdaNew = lambdaSubOptimal + deltaLocalMove_signed;
+			double lambdaNew = bringInRange(lambdaSubOptimal + h, minInterval, maxInterval);
 
-			final double logLikelihoodLambdaNew = logLikelihood(lambdaNew);
-			final double logLikelihoodLambdaSubOptimal = logLikelihood(lambdaSubOptimal);
+			final double fLambdaNew = f(lambdaNew);
+			final double fLambdaSubOptimal = f(lambdaSubOptimal);
 
-			if (isEqual(logLikelihoodLambdaNew, logLikelihoodLambdaSubOptimal, tolerancelogLikelihood)) {
+			if (isEqual(fLambdaNew, fLambdaSubOptimal, toleranceF)) {
 				return lambdaSubOptimal;
-			} else if ((logLikelihoodLambdaNew - logLikelihoodLambdaSubOptimal) > tolerancelogLikelihood) {
-				return localMoves(lambdaNew, forwardBackward, deltaLocalMoves);
-			} else if ((logLikelihoodLambdaSubOptimal - logLikelihoodLambdaNew) > tolerancelogLikelihood) {
-				return localMoves(lambdaSubOptimal, forwardBackward, deltaLocalMoves * 0.5);
 			}
 
+			else if ((fLambdaNew - fLambdaSubOptimal) > toleranceF) {
+				return localMoves(lambdaNew, fb, dLocalMoves);
+			}
+
+			else if ((fLambdaSubOptimal - fLambdaNew) > toleranceF) {
+				return localMoves(lambdaSubOptimal, fb, dLocalMoves * 0.5);
+			}
+
+			/* else do nothing = return the same lambda_subOptimal of last iteration */
+			return lambdaSubOptimal;
 		}
-		return lambdaSubOptimal;
 	}
 
 	public void findOptimalLambda() {
-		double[] lineMin = findLineCharacteristics(minimumIntervalOfLambdas, 2);
-		double[] lineMax = findLineCharacteristics(maximumIntervalOfLambdas, 3);
+		double[] lineMin = lineChars(minInterval, 2);
+		double[] lineMax = lineChars(maxInterval, 3);
 
 		double lambdaStar = findInterSectionLines(lineMin, lineMax);
-		double[] lineStar = findLineCharacteristics(lambdaStar, 2);
-		double[] lineSubOptimal = calculateLineSubOptimal(lineStar, lineMin, lineMax);
+		double[] lineStar = lineChars(lambdaStar, 2);
+
+		lineStar = lineChars(lambdaStar, 2);
+
+//		System.out.println("inFindOptimalLambda   "+lineStar[0]+"\t"+lineMin[0]+"\t"+lineMax[0]);
+
+		double[] lineSubOptimal = calcLineSubOptimal(lineStar, lineMin, lineMax);
+
+//		System.out.println("inFindOptimalLambda, subOptimalLambda   "+lineSubOptimal[0]);
 
 		this.optimalLambda = localMoves(lineSubOptimal[0], 2, deltaLocalMoves);
-		this.logLikelihoodOptimalLambda = this.logLikelihood(optimalLambda);
+
+//		System.out.println("in findOptimalLamda, optimal lambda: "+optimalLambda);
+		this.fOptimalLambda = this.f(optimalLambda);
 
 	}
 
-	/**
-	 * The main method of the program
-	 * 
-	 * @param args
-	 *            args[0]: a text file with the Newick format of the tree in it,
-	 *            ending in the root node , followed by ";".
-	 * 
-	 *            args[1]: a text file representing WGM events. Each WGM must be
-	 *            present in one line. In case successive WGMs happened on one
-	 *            branch the events should be present from the oldest to the
-	 *            youngest. For example WGD from node A to B with branch length x is
-	 *            presented as: WGD, A, B, x where x is the distance of the WGD node
-	 *            to the parent node.
-	 * 
-	 *            args[2]: Gene family counts. this file must contain at every line,
-	 *            a gene family ID, followed by gene counts in different species in
-	 *            the same order that the species appear in the Newick format tree.
-	 * 
-	 *            args[3]: An integer representing the number of gene family in the
-	 *            gene counts file, starting from 0.
-	 */
-	public static void main(String[] args) {
-
-		final double stepSize = 1e-4;// step size of calculating the numerical derivatives
-		final double deltaLocalMoves = 1e-1;
-		final double tolD = 1e-3;
-		final double tolF = 1e-4;
-		final double minInterval = 1e-2;
-		final double maxInterval = 9.9999;
-		final double precisionLambda = 1e-5;
-		final double partitionSizeOfBranches = 0.1;
-		final int maximumGeneCount = 100;
-		final int numberOfGeneratedSampleGeneCounts = 1000;
-
-		Node root = SpeciesTreeParser.buildAndPartitionTree(args[0], args[1], partitionSizeOfBranches,
-				maximumGeneCount);
-
-		ReadGeneFamilycountsFile readGeneFamilyCountsFile = new ReadGeneFamilycountsFile();
-		List<List<Integer>> genefamily_Counts = readGeneFamilyCountsFile.readGeneCountsFile(args[2]);
-
-		ArrayList<String> genefamilyIDs = readGeneFamilyCountsFile.getGfIDs();
-
-		int geneFamilyNumber = Integer.parseInt(args[3]);
-		System.out.println(genefamilyIDs.get(geneFamilyNumber));
-
-        int rootSize = Integer.parseInt(args[4]);
-
-			SpeciesTreeParser.setLeavesValues(root, genefamily_Counts, geneFamilyNumber);
-
-			ArrayList<Node> speciesTree = SpeciesTreeParser.setMaximumGeneCount(root, maximumGeneCount);
-
-			TransitionProbabilityCalculator probabilityCalculator = new TransitionProbabilityCalculator();
-
-			CuttingPlaneMethod cuttingPlaneMethod = new CuttingPlaneMethod(speciesTree, rootSize, stepSize,
-					deltaLocalMoves, tolD, tolF, minInterval, maxInterval, precisionLambda, probabilityCalculator);
-
-			cuttingPlaneMethod.findOptimalLambda();
-
-			System.out.print(rootSize + "\t" + cuttingPlaneMethod.getOptimalLambda() + "\t"
-					+ cuttingPlaneMethod.getlogLikelihoodOptimalLambda());
-
-			Pvalues pvalues = new Pvalues(root, speciesTree, cuttingPlaneMethod.getOptimalLambda(),
-					numberOfGeneratedSampleGeneCounts, probabilityCalculator, rootSize);
-
-			double pValue = pvalues.calculateConditionalPvalues(rootSize, rootSize,
-					cuttingPlaneMethod.getlogLikelihoodOptimalLambda());
-
-			System.out.print("\t" + pValue + "\n");
-
+	public double bringInRange(double lam, double minInt, double maxInt) {
+		if (lam <= minInt) {lam = minInt;} 
+		else if (lam >= maxInt) {lam = maxInt;}
+		return lam;
 	}
+
+	public double[] solveNaN(double lam, double minInt, double maxInt) {
+
+		double[] resolvedNan = new double[3];
+		if (Double.isNaN(lam) && !Double.isNaN(minInt) && !Double.isNaN(maxInt)) {
+			lam = (minInt + maxInt) / 2;
+		}
+		if (Double.isNaN(minInt) && !Double.isNaN(lam) && !Double.isNaN(maxInt)) {
+//			minInt = minInterval + 0.1;
+			minInt = lam - 1;
+		}
+		if (Double.isNaN(maxInt) && !Double.isNaN(minInt) && !Double.isNaN(lam)) {
+			maxInt = lam + 1;
+		}
+		if (Double.isNaN(maxInt) && Double.isNaN(minInt) && Double.isNaN(lam)) {
+			System.err.println("ERROR!  " + maxInt + "\t" + minInt + "\t" + lam);
+		}
+
+		resolvedNan[0] = bringInRange(lam, 0.01, 9.99);
+		resolvedNan[1] = bringInRange(minInt, 0.01, 9.99);
+		resolvedNan[2] = bringInRange(maxInt, 0.01, 0.99);
+
+		return resolvedNan;
+	}
+
+//	public static List<String> speNamesToDelete(List<String> allSpeNames, int numOfSpeToDelete, int totalNumSpe) {
+//		Random rand = new Random();
+//		List<String> spe_del = new ArrayList<String>();
+//
+//		for (int i = 0; i < numOfSpeToDelete; i++) {
+//
+//			/* random = from + rndGenerator.nextInt(to - from + 1) */
+//			int r = rand.nextInt(totalNumSpe);
+//
+//			if (!spe_del.contains(allSpeNames.get(r))) {
+//				spe_del.add(allSpeNames.get(r));
+//			} else {
+//				numOfSpeToDelete += 1;
+//			}
+//		}
+//		return spe_del;
+//	}
+
+	// public static void main(String[] args) {
+	//
+	// // long startTime = System.currentTimeMillis();
+	//// double stepSize = 1e-4;// step calculating derivative
+	// double stepSize = 1e-3;
+	//// double deltaLocalMoves = 1e-1;
+	// double deltaLocalMoves = 1e-2;
+	// double tolD = 1e-3;
+	// double tolF = 1e-4;
+	// double minInterval = 1e-2;
+	// double maxInterval = 9.9999;
+	// double minAllowed = 1e-2;
+	// double maxAllowed = 9.9999;
+	// double precisionLambda = 1e-5; // one digit more than the number of digits we
+	// require accurately
+	// double partitionSize = 0.1;
+	// int defaultmaxNodeSize = 100;
+	//
+	// // int ignoreLine= Integer.parseInt(args[4]);
+	//
+	// Node root = SpeciesTreeParser.buildInsertWGDsandPartitionTree(args[0],
+	// args[1], partitionSize,
+	// defaultmaxNodeSize);
+	//
+	// // Node root = SpeciesTreeParser.buildAndPartitionTree_ReverseEng(args[0],
+	// // args[1],
+	// // partitionSize, defaultmaxNodeSize,ignoreLine);
+	//
+	// // args: 0= tree, 1= wgd file, 2= gf count file, 3= number of gf, 4=wgm
+	// // retention rates
+	// // Node root =
+	// SpeciesTreeParser.buildAndPartitionTree_customMultFactor(args[0],
+	// // args[1], args[4],
+	// // partitionSize, defaultmaxNodeSize);
+	// ArrayList<Node> leaves = root.getLeaves();
+	//
+	// ReadGFcountsFile rgf = new ReadGFcountsFile();
+	// List<List<Integer>> gfCounts = rgf.read_all(args[2]);
+	//
+	// ArrayList<String> gfIDs = rgf.getGfIDs();
+	//
+	// /** For the 10 Eudicots pruned out of 14 Angio */
+	// // double wgtBlen = 0.260;
+	// // double oldrootBlen = 0.275776;
+	//
+	// /** For the 28 Eudicots pruned out of 37 Angio */
+	// // double wgtBlen = 0.155383;
+	// // double oldrootBlen = 0.2757765996999999;
+	//
+	// /** For the 8 Monocots pruned out of 37 Angio */
+	// // double wgtBlen = 0.222; // it's not really WGT but WGD , just for
+	// programming
+	// // names
+	// // double oldrootBlen = 0.323803;
+	//
+	// // String idealProfilePath =
+	// //
+	// "/home/setas/Desktop/setas/Project1/Results/9178coreGF-CPMpv-tier1-37speMGCF5/ComparisonsWithIdealprofiles/IdealProfiles_R1";
+	// // ArrayList<Integer> idealProfileR1 =
+	// cmmFunct.readColX_Int(idealProfilePath,
+	// // 4); // Tau-Mon2_Musa3
+	//
+	// // int numberOfObservations = 1000;
+	// int gf = Integer.parseInt(args[3]);
+	// System.out.println(gfIDs.get(Integer.parseInt(args[3])));
+	//
+	// /** Delete a few species */
+	//// String pathToSpeNames=args[4];
+	// CommonFunctions cmf = new CommonFunctions();
+	//// List<String> allSpeciesNames = cmf.read1ColFile_String(pathToSpeNames);
+	//
+	//// int numOfSpeToDelete=Integer.parseInt(args[5]);
+	//// int numOfSpeToDelete = 5;
+	//// List<String> speNamesToDelete = speNamesToDelete(allSpeciesNames,
+	// numOfSpeToDelete, allSpeciesNames.size());
+	//
+	//
+	// for (int rootSize = 1; rootSize <= 10; rootSize++) {
+	// // int rootSize= Integer.parseInt(args[3]);
+	//
+	// /**
+	// * Don't move these lines out of the loop. because pvalues change the leaf
+	// * values and you have to reset once you move to the next root size within the
+	// * same gene family: for now we don't calculate p-values
+	// */
+	//
+	// SpeciesTreeParser.setLeavesValues(root, gfCounts, gf);
+	// // SpeciesTreeParser.setLeavesValues_one(root, idealProfileR1);
+	//// root.deleteNodeFromTree(speNamesToDelete);
+	// ArrayList<Node> speciesTree = SpeciesTreeParser.setMaxNodeSize(root,
+	// defaultmaxNodeSize);
+	//
+	// ProbCalculator probCache = new ProbCalculator();
+	//
+	// CuttingPlaneMethod cpm = new CuttingPlaneMethod(speciesTree, rootSize,
+	// stepSize, deltaLocalMoves, tolD,
+	// tolF, minInterval, maxInterval, minAllowed, maxAllowed, precisionLambda,
+	// probCache, root, gfCounts);
+	//
+	// // RootSizeThread runThread = new RootSizeThread(cpm);
+	// // runThread.start();
+	//
+	// cpm.findOptimalLambda();
+	//
+	// System.out.print(rootSize + "\t" + cpm.getOptimalLambda() + "\t" +
+	// cpm.getfOptimalLambda());
+	//
+	// // Pvalues pv = new Pvalues(root, speciesTree, cpm.getOptimalLambda(),
+	// // numberOfObservations, probCache);
+	//
+	// // int eudicotSize =
+	// // IncludeAngioSperms.generateSizeAtEudicots(root.getmaxNodeSize(),
+	// // rootSize, cpm.getOptimalLambda(), wgtBlen, oldrootBlen,
+	// // probCache);
+	// // double pValue = pv.calculateConditionalPvalues(rootSize,
+	// // eudicotSize, cpm.getfOptimalLambda());
+	//
+	// // double pValue = pv.calculateConditionalPvalues(rootSize, rootSize,
+	// // cpm.getfOptimalLambda());
+	// //
+	// // System.out.print("\t" + pValue);
+	//
+	// System.out.print("\n");
+	//
+	// }
+	// // long endTime = System.currentTimeMillis();
+	// // System.out.println(endTime - startTime);
+
+	// }
 
 }
