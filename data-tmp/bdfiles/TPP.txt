@@ -1,0 +1,2 @@
+#gf_id	species	genes	lja	mtr	gma	mdo	fve	mes	rco	ptr	ath	aly	cpa	tca	vvi	osa	osaindica	bdi	sbi	zma	smo	ppa	olu	ota	mrcc299	vca	cre
+HOM000487	0	0	0	7	22	12	7	10	7	11	10	10	5	5	9	14	12	11	12	12	0	0	0	0	0	0	0

@@ -1,46 +1,28 @@
 package be.ugent.psb.setas.bdmodel.model;
 
-/*
- * #%L
- * BirthDeathModel
- * %%
- * Copyright (C) 2017 VIB/PSB/UGent - Setareh Tasdighian
- * %%
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public
- * License along with this program.  If not, see
- * <http://www.gnu.org/licenses/gpl-3.0.html>.
- * #L%
- */
-
 import java.util.ArrayList;
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.Stack;
+
+import be.ugent.psb.setas.bdmodel.parsers.NewickParser;
 
 public class PartitionBranches {
 
-	public PartitionBranches(Node root, double desiredmaximumLenghtOfBranches) {
+	public PartitionBranches(Node root, double threshold) {
 		this.root = root;
-		this.maximumLenghtOfBranches = desiredmaximumLenghtOfBranches;
+		this.threshold = threshold;
 	}
 
 	private Node root;
-	private double maximumLenghtOfBranches;
+	private double threshold; // max t in the tree we wish to use, e.g. 0.1
 
 	public double getThreshold() {
-		return maximumLenghtOfBranches;
+		return threshold;
 	}
 
 	public void setThreshold(double threshold) {
-		this.maximumLenghtOfBranches = threshold;
+		this.threshold = threshold;
 	}
 
 	public Node getRoot() {
@@ -51,113 +33,139 @@ public class PartitionBranches {
 		this.root = root;
 	}
 
-	public void setParametersForBranchLongerThanThreshold(Branch branch) {
+	public void setParamsForBrLongerThanThrshold(Branch br) {
 
-		double branchLength = branch.getBranchLenght();
+		double blen = br.getBranchLenght();
 
-		if (branchLength > maximumLenghtOfBranches) {
+		if (blen > threshold) {
 
-			int numberOfPartitions = (int) (Math.floor(branchLength / maximumLenghtOfBranches));
-			double remainingBranchlength = branchLength - (numberOfPartitions) * maximumLenghtOfBranches;
+			int numOfPartitions = (int) (Math.floor(blen / threshold));
+			double remainingBlen = blen - (numOfPartitions) * threshold;
 
-			branch.setNumberOfPartitions(numberOfPartitions);
-			branch.setRemainingBlen(remainingBranchlength);
+			br.setNumberOfPartitions(numOfPartitions);
+			br.setRemainingBlen(remainingBlen);
 		}
 
 	}
 
-	public Node addVirtualNodeOnaSpecificBranch(Branch branch) {
+	public Node addVirtualNodeOnaSpecificBranch(Branch br) {
 
-		setParametersForBranchLongerThanThreshold(branch);
+		setParamsForBrLongerThanThrshold(br);
 
-		Node child = branch.getChild();
-		Node parent = branch.getParent();
+		Node child = br.getChild();
+		Node parent = br.getParent();
 
 		String parentName = parent.getName();
 		String childName = child.getName();
 
-		double oldBlen = child.getbranchLength();
+		double oldBlen = child.getbLen();
 
-		Node virtualNode = new Node();
-		virtualNode.isVirtualNode = true;
-		virtualNode.setName("VN " + parentName + " to " + childName);
-		virtualNode.setbranchLength(maximumLenghtOfBranches);
-		virtualNode.depthOfNode = (parent.depthOfNode) + 1;
-		virtualNode.setMaxNodeGeneCountAtNode(parent.getMaxGeneCountAtNode());
+		Node vn = new Node();
+		vn.isVirtualNode = true;
+		vn.setName("VN " + parentName + " to " + childName);
+		vn.setbLen(threshold);
+		vn.depth = (parent.depth) + 1;
+		vn.setmaxNodeSize(parent.getmaxNodeSize());
 
 		child.addDepthSubTree(child, 1);
-		child.setParent(virtualNode);
+		child.setParent(vn);
 
 		if (parent.getLeftChild() != null
 				&& parent.getLeftChild().getName().equals(child.getName())) {
 
-			virtualNode.setLeftChild(child);
-			virtualNode.getLeftChild().setbranchLength(oldBlen - virtualNode.getbranchLength());
+			vn.setLeftChild(child);
+			vn.getLeftChild().setbLen(oldBlen - vn.getbLen());
 
-			virtualNode.setParent(parent);
-			parent.setLeftChild(virtualNode);
+			vn.setParent(parent);
+			parent.setLeftChild(vn);
 		}
 
 		else if (parent.getRightChild() != null
 				&& parent.getRightChild().getName().equals(child.getName())) {
 
-			virtualNode.setRightChild(child);
-			virtualNode.getRightChild().setbranchLength(oldBlen - virtualNode.getbranchLength());
+			vn.setRightChild(child);
+			vn.getRightChild().setbLen(oldBlen - vn.getbLen());
 
-			virtualNode.setParent(parent);
-			parent.setRightChild(virtualNode);
+			vn.setParent(parent);
+			parent.setRightChild(vn);
 		}
 
-		return virtualNode;
+		return vn;
 
 	}
 
-	public void addAllVirtualNodesOnABranch(Branch branch) {
+	public void addAllVirtualNodesOnABranch(Branch br) {
 
 		Stack<Branch> stackOfBranches = new Stack<Branch>();
-		addAllVirtualNodesOnABranchRecursively(branch, stackOfBranches);
+		addAllVirtualNodesOnABranchRec(br, stackOfBranches);
 	}
 
-	private void addAllVirtualNodesOnABranchRecursively(Branch newBranch, Stack<Branch> stackOfBranches) {
+	private void addAllVirtualNodesOnABranchRec(Branch br, Stack<Branch> stBr) {
 
-		stackOfBranches.push(newBranch);
+		stBr.push(br);
 
-		while (!stackOfBranches.empty()) {
+		while (!stBr.empty()) {
 
-			Branch testBranch = stackOfBranches.pop();
+			Branch test = stBr.pop();
 
-			if (testBranch.getNumberOfPartitions() > 0) {
+			if (test.getNumberOfPartitions() > 0) {
 
-				Node virtualNode = addVirtualNodeOnaSpecificBranch(testBranch);
+				Node vn = addVirtualNodeOnaSpecificBranch(test);
 
-				if (virtualNode.getLeftChild() != null) {
-					Branch leftBranch = new Branch(virtualNode, virtualNode.getLeftChild());
+				if (vn.getLeftChild() != null) {
+					Branch brLeft = new Branch(vn, vn.getLeftChild());
 					
-					setParametersForBranchLongerThanThreshold(leftBranch);					
-					stackOfBranches.push(leftBranch);
+					setParamsForBrLongerThanThrshold(brLeft);					
+					stBr.push(brLeft);
 
 				}
 
-				else if (virtualNode.getRightChild() != null) {
+				else if (vn.getRightChild() != null) {
 
-					Branch rightBranch = new Branch(virtualNode, virtualNode.getRightChild());
-					setParametersForBranchLongerThanThreshold(rightBranch);
-					stackOfBranches.push(rightBranch);
+					Branch brRight = new Branch(vn, vn.getRightChild());
+					setParamsForBrLongerThanThrshold(brRight);
+					stBr.push(brRight);
 				}
 			}
 		}
 
 	}
 
-	public void insertAllVirtualNodesOnAllBranches() {
+	public void insertAllVNSonAllBranches() {
 
-		ArrayList<Branch> arrayListOfBranches = root.findAllBranches(root);
+		ArrayList<Branch> arb = root.findAllBranches(root);
 
-		for (Branch branch : arrayListOfBranches) {
+		for (Branch br : arb) {
 
-			setParametersForBranchLongerThanThreshold(branch);
-			addAllVirtualNodesOnABranch(branch);
+			setParamsForBrLongerThanThrshold(br);
+			addAllVirtualNodesOnABranch(br);
 		}
 	}
 
+//	 public static void main (String [] args){
+//	
+//	 int maxNodeSize = 5;
+//	
+//	 NewickParser np = new NewickParser();
+//	 Node root = np.buildTree(args[0],maxNodeSize);
+//	
+//	 ArrayList<Node> leaves = root.getLeaves();
+//	 root.setLeaves(leaves);
+//	 root.setNumberOfLeaves(leaves.size());
+//	
+//	 PartitionBranches pb = new PartitionBranches(root,0.1);
+//	
+//	 pb.insertAllVNSonAllBranches();
+//	
+//	 Queue<Node> queue = root.postOrder();
+//	 ArrayList<Node> aryln = new ArrayList<Node>(queue);
+//	
+//	 for(Node n : aryln){
+//	
+//	 System.out.println(n.getName());
+//	 }
+//	
+//	
+//	
+//	 }
 }

@@ -1,95 +1,158 @@
 package be.ugent.psb.setas.bdmodel.parsers;
 
-/*
- * #%L
- * BirthDeathModel
- * %%
- * Copyright (C) 2017 VIB/PSB/UGent - Setareh Tasdighian
- * %%
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public
- * License along with this program.  If not, see
- * <http://www.gnu.org/licenses/gpl-3.0.html>.
- * #L%
- */
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Queue;
-
+import be.ugent.psb.setas.bdmodel.model.FindMaxArray;
 import be.ugent.psb.setas.bdmodel.model.Node;
 import be.ugent.psb.setas.bdmodel.model.PartitionBranches;
 
 public class SpeciesTreeParser {
 
-	/**
-	 * Given the newick format tree, WGMs and partition size of branches, 
-	 * This class builds the tree, inserts the WGMs 
-	 * and partition the branches of the tree 
-	 * and inserts Virtual Nodes at those partitions.
-	 * @param treeFile
-	 * @param wgmFile
-	 * @param partitionSize
-	 * @param maximumGeneCount
-	 * @return
-	 */
-	public static Node buildAndPartitionTree(String treeFile, String wgmFile, double partitionSize,
-			int maximumGeneCount) {
+	public static Node buildAndPartitionTree_NoWGD(String treeFile, double partitionSize, int defaultmaxNodeSize) {
 
-		NewickFormatTreeParser newickParser = new NewickFormatTreeParser();
-		Node root = newickParser.setParametersOfTree(treeFile, maximumGeneCount);
+		NewickParser np = new NewickParser();
+		Node root = np.buildTree(treeFile, defaultmaxNodeSize);
+		root.getLeaves();
+
+		if (partitionSize != 0) {
+			PartitionBranches pb = new PartitionBranches(root, partitionSize);
+			pb.insertAllVNSonAllBranches();
+		}
+		return root;
+	}
+
+	public static Node buildInsertWGDsandPartitionTree(String treeFile, String wgdFile, double partitionSize,
+			int defaultmaxNodeSize) {
+
+		NewickParser np = new NewickParser();
+		Node root = np.buildTree(treeFile, defaultmaxNodeSize);
 		root.getLeaves();
 
 		WGMparser wgm = new WGMparser();
-		List<List<String>> wgmList = wgm.readWGMfile(wgmFile);
-		root.insertWGMsToTheTree(wgmList);
+		List<List<String>> wgdList = wgm.readInputFile(wgdFile);
+		root.insertWGMsToTheTree(wgdList);
 
 		if (partitionSize != 0) {
-			PartitionBranches partitionBranches = new PartitionBranches(root, partitionSize);
-			partitionBranches.insertAllVirtualNodesOnAllBranches();
+			PartitionBranches pb = new PartitionBranches(root, partitionSize);
+			pb.insertAllVNSonAllBranches();
 		}
 
 		return root;
 	}
-	
-	/**
-	 * Sets the values of gene counts for the spcified gene family
-	 * @param root
-	 * @param allGeneCounts
-	 * @param numberOfGeneFamily
-	 */
-	public static void setLeavesValues(Node root, List<List<Integer>> allGeneCounts, int numberOfGeneFamily) {
 
-		List<Integer> listOfGeneCounts = allGeneCounts.get(numberOfGeneFamily);
+//	public static Node  buildAndPartitionTree_customMultFactor(String treeFile, String wgdFile, String WGMretentionRatesFile, double partitionSize, int defaultmaxNodeSize) {
+//
+//		NewickParser np = new NewickParser();
+//		Node root = np.buildTree(treeFile , defaultmaxNodeSize);
+//		root.getLeaves();
+//
+//		WGMparser wgm = new WGMparser();
+//		List<List<String>> wgdList = wgm.readInputFile(wgdFile);
+//		ArrayList<String> retentionRates = wgm.readRetentionRates_String(WGMretentionRatesFile);
+//		
+//		double[] retRates = new double [retentionRates.size()];
+//		
+//		for(int i=0; i<retentionRates.size(); i++){
+//			
+//			retRates [i] = Double.parseDouble(retentionRates.get(i));
+//		}
+//		root.insertWGMsToTheTree_customMultFactor(wgdList, retRates); 
+//		
+//		if(partitionSize != 0){
+//		PartitionBranches pb = new PartitionBranches(root, partitionSize);
+//		pb.insertAllVNSonAllBranches();
+//		}
+//
+//		return root;
+//	}
+//	
+	public static Node buildAndPartitionTree_ReverseEng(String treeFile, String wgdFile, double partitionSize,
+			int defaultmaxNodeSize, int ignoreLine) {
 
-		int[] geneCountProfile = new int[listOfGeneCounts.size()];
+		NewickParser np = new NewickParser();
+		Node root = np.buildTree(treeFile, defaultmaxNodeSize);
+		root.getLeaves();
 
-		for (int speciesNumber = 0; speciesNumber < listOfGeneCounts.size(); speciesNumber++) {
-			
-			geneCountProfile[speciesNumber] = listOfGeneCounts.get(speciesNumber);
+		WGMparser wgm = new WGMparser();
+		List<List<String>> wgdList = wgm.readInputFile(wgdFile);
+		root.insertWGMsToTheTree_ReverseEng(wgdList, ignoreLine);
+
+		if (partitionSize != 0) {
+			PartitionBranches pb = new PartitionBranches(root, partitionSize);
+			pb.insertAllVNSonAllBranches();
 		}
-		root.setLeafValues(geneCountProfile);
+		return root;
 	}
 
-	public static ArrayList<Node> setMaximumGeneCount(Node root, int maximumGeneCount) {
+	public static Node buildAndPartitionTree_RVS(String treeFile, String wgdFileOrg, String rmWGD8, String rmWGD9,
+			String rmWGD12, String rmWGD16, double partitionSize, int defaultmaxNodeSize, int numberOfWGDinList) {
 
-		Queue<Node> queueOfNodesInPostOrder = root.postOrder();
+		String wgdFileToPass = wgdFileOrg;
 
-		for (Node node : queueOfNodesInPostOrder) {
-			node.setMaxNodeGeneCountAtNode(maximumGeneCount);
+		if (numberOfWGDinList == 8) {wgdFileToPass = rmWGD8;}
+
+		if (numberOfWGDinList == 9) {wgdFileToPass = rmWGD9;}
+
+		if (numberOfWGDinList == 12) {wgdFileToPass = rmWGD12;}
+
+		if (numberOfWGDinList == 16) {wgdFileToPass = rmWGD16;}
+
+		return buildAndPartitionTree_ReverseEng(treeFile, wgdFileToPass, partitionSize, defaultmaxNodeSize,
+				numberOfWGDinList);
+	}
+
+	public static void setLeavesValues(Node root, List<List<Integer>> nonRepetetiveCounts, int gf) {
+
+		List<Integer> li = nonRepetetiveCounts.get(gf);
+		// to exclude the gene counts of the last 9 non eudicot species of the 37 spe
+//		int[] originalObservation = new int[li.size()-9];
+		int[] originalObservation = new int[li.size()];
+
+//		for (int m = 0; m < li.size()-9; m++) {
+		for (int m = 0; m < li.size(); m++) {
+			originalObservation[m] = li.get(m);
+		}
+		root.setLeafValues(originalObservation);
+	}
+
+	public static void setLeavesValues_one(Node root, List<Integer> li) {
+
+		int[] originalObservation = new int[li.size()];
+
+		for (int m = 0; m < li.size(); m++) {originalObservation[m] = li.get(m);}
+		root.setLeafValues(originalObservation);
+	}
+
+	public static ArrayList<Node> setMaxNodeSizeAccToGF(Node root, List<List<Integer>> nonRepetetiveCounts, int gf) {
+
+		Queue<Node> queue = root.postOrder();
+
+		List<Integer> li = nonRepetetiveCounts.get(gf);
+		int[] originalObservation = new int[li.size()];
+
+		for (int m = 0; m < li.size(); m++) {
+			originalObservation[m] = li.get(m);
 		}
 
-		ArrayList<Node> arrayListOfNodes = new ArrayList<Node>(queueOfNodesInPostOrder);
-		return arrayListOfNodes;
+		int maxGeneCount = FindMaxArray.findMaxValueIntArray(originalObservation);
+		int maxNodeSize = Math.max(100, maxGeneCount);
 
+		if (maxNodeSize > 100) {
+			for (Node n : queue) {
+				n.setmaxNodeSize(maxNodeSize);
+			}
+		}
+		ArrayList<Node> arln = new ArrayList<Node>(queue);
+		return arln;
+	}
+
+	public static ArrayList<Node> setMaxNodeSize(Node root, int maxNodeSize) {
+
+		Queue<Node> queue = root.postOrder();
+
+		for (Node n : queue) {n.setmaxNodeSize(maxNodeSize);}
+		ArrayList<Node> arln = new ArrayList<Node>(queue);
+		return arln;
 	}
 }

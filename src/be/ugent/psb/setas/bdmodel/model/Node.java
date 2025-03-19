@@ -1,114 +1,119 @@
 package be.ugent.psb.setas.bdmodel.model;
 
-/*
- * #%L
- * BirthDeathModel
- * %%
- * Copyright (C) 2017 VIB/PSB/UGent - Setareh Tasdighian
- * %%
- * This program is free software: you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as
- * published by the Free Software Foundation, either version 3 of the
- * License, or (at your option) any later version.
- * 
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- * 
- * You should have received a copy of the GNU General Public
- * License along with this program.  If not, see
- * <http://www.gnu.org/licenses/gpl-3.0.html>.
- * #L%
- */
-
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Stack;
 
+import be.ugent.psb.setas.bdmodel.parsers.NewickParser;
+import be.ugent.psb.setas.bdmodel.parsers.SpeciesTreeParser;
+
 public class Node {
 
 	public Node() {
+		// TODO Auto-generated constructor stub
 	}
 
 	private Node leftChild;
 	private Node rightChild;
-	private Node parentNode;
+	private Node parent;
 
 	/**
-	 * If a node has no children, it is called a leaf and the boolean isleaf is
-	 * True for it.
+	 * If a node has no children, it is called a leaf and the boolean isleaf is True
+	 * for it.
 	 */
 	public boolean isRoot;
 	public boolean isLeaf;
+
+	/**
+	 * If this node is not a real node in the phylogeny, but a Whole Genome
+	 * Duplication, we assume it is a new node and add it to the tree. The boolean
+	 * isWGD is true for this kind of nodes.
+	 */
 	public boolean isWGD;
 	public boolean isWGT;
 	public boolean isWGM;
 	public boolean isVirtualNode;
 
-	/**
-	 * multiplication factor is equal to 2 for WGDs and equal to 3 for WGMs. It is not defined or used for other nodes.
-	 */
-	public int multiplicationFactor;
+	public int multFactor;
+	// public double multFactor;
 
-	private String nodeName;
+	private String name;
 
-	/** The distance between a node and its parentNode */
-	private double branchLength;
-	private double distanceToRoot;
+	/** the branch length between a node and its parent */
+	private double bLen;
+	private double disToRoot;
+	// private int numberOfLeaves;
 
-	private int geneCountAtNode;
+	private int value;
 
-	public int getGeneCountAtNode() {
-		return this.geneCountAtNode;
+	public int getValue() {
+		return this.value;
 	}
 
 	public void setValue(int value) {
-		this.geneCountAtNode = value;
+		this.value = value;
 	}
 
-	public int depthOfNode;
+	public int depth;
 
-	private int maximumGeneCountAtNode;
-	private double[] likelihoodArrayOfNode = new double[maximumGeneCountAtNode + 1];
+	private int maxNodeSize;
+	private double[] lk = new double[maxNodeSize + 1];
+	public double Lksum;
 
-	private ArrayList<Node> arrayListOfLeaves = new ArrayList<Node>();
+	private int optimalSize;
+
+	private ArrayList<Node> leaves = new ArrayList<Node>();
 
 	/**
-	 * The array reference likelihood saves likelihoods of the geneCountAtNode of a node
-	 * being 1 to maximumGeneCount at nodes (set to 100 in the main method), 
-	 * given an array of observations from the input file (= reference observation).
+	 * The array reference likelihood saves likelihoods of the value of a node being
+	 * 1 to 100, given an array of observations from the input file (= reference
+	 * observation).
 	 */
-	public double[] getLikelihoodArray() {
 
-		return this.likelihoodArrayOfNode;
+	private NodeType type;
+
+	public enum NodeType {
+		INTERNAL, LEAF, WGD, VIRTUAL;
 	}
 
-	public double getLikelihoodValue(int geneCountAtTheNode) {
+	public double[] getLkArray() {
 
-		return this.likelihoodArrayOfNode[geneCountAtTheNode];
+		return this.lk;
 	}
 
-	public void setLikelihoodValue(int geneCount, double likelihood) {
-		if (geneCount > this.likelihoodArrayOfNode.length) {
-			geneCount = this.maximumGeneCountAtNode;
+	public double getLkValue(int nodeSize) {
+
+		return this.lk[nodeSize];
+	}
+
+	public void setLkValue(int nodeSize, double likelihood) {
+		if (nodeSize > this.lk.length) {
+			nodeSize = this.maxNodeSize;
 		}
-		likelihoodArrayOfNode[geneCount] = likelihood;
+		lk[nodeSize] = likelihood;
 	}
 
-	public int getMaxGeneCountAtNode() {
-		return maximumGeneCountAtNode;
+	public int getmaxNodeSize() {
+		return maxNodeSize;
 	}
 
-	public void setMaxNodeGeneCountAtNode(int maximumGeneCount) {
-		this.maximumGeneCountAtNode = maximumGeneCount;
-		double[] newLogklikelihood = new double[this.maximumGeneCountAtNode + 1];
-		for (int i = 0; i < likelihoodArrayOfNode.length; i++) {
-			newLogklikelihood[i] = likelihoodArrayOfNode[i];
+	public void setmaxNodeSize(int m) {
+		this.maxNodeSize = m;
+		double[] newLk = new double[this.maxNodeSize + 1];
+		for (int i = 0; i < lk.length; i++) {
+			newLk[i] = lk[i];
 		}
-		this.likelihoodArrayOfNode = newLogklikelihood;
+		this.lk = newLk;
+	}
+
+	public int getOptimalSize() {
+		return optimalSize;
+	}
+
+	public void setoptimalSize(int m) {
+		this.optimalSize = m;
 	}
 
 	public Node getLeftChild() {
@@ -129,40 +134,39 @@ public class Node {
 	}
 
 	public Node getParent() {
-		return parentNode;
+		return parent;
 	}
 
 	public void setParent(Node parent) {
-		this.parentNode = parent;
+		this.parent = parent;
 	}
 
 	public String getName() {
-		return nodeName;
+		return name;
 	}
 
-	public void setName(String nameOfNode) {
-		this.nodeName = nameOfNode;
+	public void setName(String name) {
+		this.name = name;
 	}
 
+	public double getbLen() {
+		return bLen;
+	}
 
 	/**
-	 * @return the branch length between a node and its parentNode
+	 * @return the branch length between a node and its parent
 	 */
-	public double getbranchLength() {
-		return branchLength;
+	public void setbLen(double blen) {
+		this.bLen = blen;
 	}
 
-	public void setbranchLength(double branchlength) {
-		this.branchLength = branchlength;
+	public double getDistToRoot() {
+		return disToRoot;
 	}
 
-	public double getDistanceToRoot() {
-		return distanceToRoot;
-	}
+	public void setDistToRoot(double disToRoot) {
 
-	public void setDistanceToRoot(double distanceToRoot) {
-
-		this.distanceToRoot = distanceToRoot;
+		this.disToRoot = disToRoot;
 	}
 
 	@Override
@@ -171,156 +175,206 @@ public class Node {
 	}
 
 	public int getNumberOfLeaves() {
-		return arrayListOfLeaves.size();
+		return leaves.size();
 	}
 
+	// public void setNumberOfLeaves(int n) {
+	// this.numberOfLeaves = n;
+	// }
+
 	/**
-	 * @return list of leaf nodes in post order:  left-right-(root) 
-	 */
+	 * old: used in Parser/BuildTree which is used for test trees in line format
+	 **/
+	public Node AddChildren(String a, String b, String c, double d, double e) {
+		Node parent = new Node();
+		parent.setName(a);
+
+		Node leftChild = new Node();
+		Node rightChild = new Node();
+
+		leftChild.setName(b);
+		leftChild.setbLen(d);
+
+		rightChild.setName(c);
+		rightChild.setbLen(e);
+
+		parent.setLeftChild(leftChild);
+		parent.setRightChild(rightChild);
+
+		return parent;
+	}
+
+	/** Outputs Post-order: left-right-(root) */
 	public ArrayList<Node> getLeaves() {
-		Stack<Node> tempStack = new Stack<Node>();
-		Stack<Node> stackOfLeaves = new Stack<Node>();
+		Stack<Node> stack = new Stack<Node>();
+		Stack<Node> leaveSt = new Stack<Node>();
 
 		if (this != null) {
-			tempStack.push(this);
+			stack.push(this);
 
-			while (!tempStack.empty()) {
-				Node root = tempStack.pop();
+			while (!stack.empty()) {
+				Node root = stack.pop();
 
 				if (root.getLeftChild() == null && root.getRightChild() == null) {
-					stackOfLeaves.push(root);
+					leaveSt.push(root);
 				}
 
 				if (root.getLeftChild() != null) {
-					tempStack.push(root.getLeftChild());
+					stack.push(root.getLeftChild());
 				}
 				if (root.getRightChild() != null) {
-					tempStack.push(root.getRightChild());
+					stack.push(root.getRightChild());
 				}
 			}
 		}
 
-		arrayListOfLeaves = new ArrayList<Node>();
-		while (!stackOfLeaves.empty()) {
-			this.arrayListOfLeaves.add(stackOfLeaves.pop());
+		// changes the order reverse again to post order: desired
+		leaves = new ArrayList<Node>();
+		while (!leaveSt.empty()) {
+			this.leaves.add(leaveSt.pop());
 		}
-		return this.arrayListOfLeaves;
+		return this.leaves;
 	}
 
+	// public void setLeaves(ArrayList<Node> l) {
+	//
+	// this.leaves = l;
+	// }
+
 	/**
-	 * CAUTION: The species in gene family counts' file should be in the same order as in newick format
-	 * file, i.e. post order
+	 * The species in GF file should be in the same order as in newick format file,
+	 * i.e. post order
 	 */
-	public void setLeafValues(int[] geneCountArray) {
-		if (arrayListOfLeaves.isEmpty()) {
+	public void setLeafValues(int[] observation) {
+		if (leaves.isEmpty()) {
 			this.getLeaves();
 		}
 
-		if (geneCountArray.length == this.getNumberOfLeaves()) {
-			for (int i = 0; i < geneCountArray.length; i++) {
-				this.arrayListOfLeaves.get(i).setValue(geneCountArray[i]);
+		if (observation.length == this.getNumberOfLeaves()) {
+			for (int i = 0; i < observation.length; i++) {
+				this.leaves.get(i).setValue(observation[i]);
 
 			}
 		} else {
-			System.err.println("Error: GF-Counts' length does not matche the number of leaves!");
+			System.out.println("Error: GF-Counts' length mismatches the number of leaves!");
 		}
 	}
 
-	public void addDepthSubTree(Node node, int addToTheDepth) {
+	/*
+	 * This method is static because we are not using any infromation of the node
+	 * that is calling it
+	 */
+	public static Node resetAllSettings(String fileName, int maxNodeSize) {
 
-		if (node != null) {
-			node.depthOfNode += addToTheDepth;
-			addDepthSubTree(node.getLeftChild(), addToTheDepth);
-			addDepthSubTree(node.getRightChild(), addToTheDepth);
+		NewickParser np = new NewickParser();
+		Node root = np.buildTree(fileName, maxNodeSize);
+		root.getLeaves();
+
+		return (root);
+
+	}
+
+	public static Node resetAllSettings_new(String treeFile, String WGDfile, double partitionSize, int maxNodeSize) {
+
+		return (SpeciesTreeParser.buildInsertWGDsandPartitionTree(treeFile, WGDfile, partitionSize, maxNodeSize));
+
+	}
+
+	public void addDepthSubTree(Node n, int i) {
+
+		if (n != null) {
+			n.depth += i;
+			addDepthSubTree(n.getLeftChild(), i);
+			addDepthSubTree(n.getRightChild(), i);
 		}
 	}
 
 	/**
 	 * 
-	 * @return All nodes in the tree with this node as root, traversed in
-	 *         postorder
+	 * @return all nodes in the tree with this node as root, traversed in postorder
 	 */
 	public Queue<Node> postOrder() {
-		Queue<Node> queueOfNodes = new LinkedList<Node>();
-		return recurviseTraverseTreeInPostOrder(this, queueOfNodes);
+		Queue<Node> q = new LinkedList<Node>();
+		return postOrderRec(this, q);
 	}
 
-	private Queue<Node> recurviseTraverseTreeInPostOrder(Node root, Queue<Node> queueOfNodesInPostOrder) {
+	private Queue<Node> postOrderRec(Node root, Queue<Node> q) {
 		if (root != null) {
-			recurviseTraverseTreeInPostOrder(root.getLeftChild(), queueOfNodesInPostOrder);
-			recurviseTraverseTreeInPostOrder(root.getRightChild(), queueOfNodesInPostOrder);
-			queueOfNodesInPostOrder.add(root);
+			postOrderRec(root.getLeftChild(), q);
+			postOrderRec(root.getRightChild(), q);
+			q.add(root);
 		}
-		return queueOfNodesInPostOrder;
+		return q;
 	}
 
-	public Node findNodeWithName(String nameOfNodeToSearch) {
+	public Node findNodeWithName(String name) {
 		Queue<Node> allNodes = this.postOrder();
 		for (Node node : allNodes) {
-			if (node.getName().equals(nameOfNodeToSearch)) {
+			if (node.getName().equals(name)) {
 				return node;
 			}
 		}
 		return null;
 	}
 
-	public void addWGM(String parentName, String childName, Node wgmNode) {
-		addWGMRecursively(this, parentName, childName, wgmNode);
+	public void addWGM(String pName, String cName, Node w) {
+		addWGMRec(this, pName, cName, w);
 	}
 
 	/**
-	 * If there are subsequent WGMs, in order for this function to work
-	 * correctly, they should be mentioned in the data file in order from oldest
-	 * to the youngest.
+	 * If there are subsequent WGMs, in order for this function to work correctly,
+	 * they should be mentioned in the data file in order from oldest to the
+	 * youngest.
 	 */
-	private void addWGMRecursively(Node node, String parentsName, String childsName, Node wgmNode) {
+	// root-leaft-right
+	private void addWGMRec(Node nodeInTree, String parentName, String childName, Node wgd) {
 
-		if (node != null) {
+		if (nodeInTree != null) {
 
-			if (!node.isLeaf) {
+			if (!nodeInTree.isLeaf) {
 
-				if (node.getName().equals(parentsName)) {
+				if (nodeInTree.getName().equals(parentName)) {
 
-					if (node.getLeftChild() != null && node.getLeftChild().getName().equals(childsName)) {
+					if (nodeInTree.getLeftChild() != null && nodeInTree.getLeftChild().getName().equals(childName)) {
 
-						addDepthSubTree(node.getLeftChild(), 1);
-						wgmNode.depthOfNode = (node.depthOfNode) + 1;
+						addDepthSubTree(nodeInTree.getLeftChild(), 1);
+						wgd.depth = (nodeInTree.depth) + 1;
 
-						double oldBlen = node.getLeftChild().getbranchLength();
+						double oldBlen = nodeInTree.getLeftChild().getbLen();
 
-						node.getLeftChild().setParent(wgmNode);
+						nodeInTree.getLeftChild().setParent(wgd);
 
-						wgmNode.setLeftChild(node.getLeftChild());
-						wgmNode.getLeftChild().setbranchLength(oldBlen - wgmNode.getbranchLength());
+						wgd.setLeftChild(nodeInTree.getLeftChild());
+						wgd.getLeftChild().setbLen(oldBlen - wgd.getbLen());
 
-						wgmNode.setParent(node);
-						node.setLeftChild(wgmNode);
+						wgd.setParent(nodeInTree);
+						nodeInTree.setLeftChild(wgd);
 					}
 
-					if (node.getRightChild() != null && node.getRightChild().getName().equals(childsName)) {
+					if (nodeInTree.getRightChild() != null && nodeInTree.getRightChild().getName().equals(childName)) {
 
-						addDepthSubTree(node.getRightChild(), 1);
-						wgmNode.depthOfNode = (node.depthOfNode) + 1;
+						addDepthSubTree(nodeInTree.getRightChild(), 1);
+						wgd.depth = (nodeInTree.depth) + 1;
 
-						double oldBlen = node.getRightChild().getbranchLength();
+						double oldBlen = nodeInTree.getRightChild().getbLen();
 
-						node.getRightChild().setParent(wgmNode);
-						wgmNode.setRightChild(node.getRightChild());
-						wgmNode.getRightChild().setbranchLength(oldBlen - wgmNode.getbranchLength());
+						nodeInTree.getRightChild().setParent(wgd);
+						wgd.setRightChild(nodeInTree.getRightChild());
+						wgd.getRightChild().setbLen(oldBlen - wgd.getbLen());
 
-						wgmNode.setParent(node);
-						node.setRightChild(wgmNode);
+						wgd.setParent(nodeInTree);
+						nodeInTree.setRightChild(wgd);
 					}
 				}
 
 				else {
-					Node left = node.getLeftChild();
-					Node right = node.getRightChild();
+					Node left = nodeInTree.getLeftChild();
+					Node right = nodeInTree.getRightChild();
 					if (left != null) {
-						addWGMRecursively(left, parentsName, childsName, wgmNode);
+						addWGMRec(left, parentName, childName, wgd);
 					}
 					if (right != null) {
-						addWGMRecursively(right, parentsName, childsName, wgmNode);
+						addWGMRec(right, parentName, childName, wgd);
 					}
 				}
 			}
@@ -329,85 +383,357 @@ public class Node {
 	}
 
 	/**
-	 * To read wgds from a list and build the corresponding nodes and use
-	 * addWGMRec method to add them recursively to the tree
+	 * To read WGDs from a list and build the corresponding nodes and use addWGMRec
+	 * method to add them recursively to the tree
+	 * 
 	 */
-	public void insertWGMsToTheTree(List<List<String>> wgmList)
+	public void insertWGMsToTheTree(List<List<String>> wgdList)
 
-	{
-		for (int i = 0; i < wgmList.size(); i++) {
+	{/* for each line of the list = each WGD: */
+		for (int i = 0; i < wgdList.size(); i++) {
 
-			String parentName = wgmList.get(i).get(1);
-			String childName = wgmList.get(i).get(2);
+			String parentName = wgdList.get(i).get(1);
+			String childName = wgdList.get(i).get(2);
 
 			Node wgm = new Node();
 			wgm.isWGM = true;
-			wgm.setbranchLength(Double.parseDouble(wgmList.get(i).get(3)));
-			wgm.setMaxNodeGeneCountAtNode(this.getMaxGeneCountAtNode());
+			wgm.setbLen(Double.parseDouble(wgdList.get(i).get(3)));
+			// because we call it with root.insertWGM.. , so the maxNodeSize of root is
+			// applied, which is set in newickparser while building tree
+			wgm.setmaxNodeSize(this.getmaxNodeSize());
 
-			if (wgmList.get(i).get(0).equalsIgnoreCase("WGD")) {
+			if (wgdList.get(i).get(0).equalsIgnoreCase("WGD")) {
 				wgm.setName("WGD-" + parentName + "-" + childName);
 				wgm.isWGD = true;
-				wgm.multiplicationFactor = 2;
-			}
+				wgm.multFactor = 2;}
 
-			if (wgmList.get(i).get(0).equalsIgnoreCase("WGT")) {
+			if (wgdList.get(i).get(0).equalsIgnoreCase("WGT")) {
 				wgm.setName("WGT-" + parentName + "-" + childName);
 				wgm.isWGT = true;
-				wgm.multiplicationFactor = 3;
+				wgm.multFactor = 3;}
+			
+//			System.out.println(wgm.getName()+ "\t"+ wgm.getbLen());
+			addWGMRec(this, parentName, childName, wgm);
+		}
+	}
+
+	public void insertWGMsToTheTree_ReverseEng(List<List<String>> wgdList, int ignoreLine) {
+		/* for each line of the list = each WGD: */
+		for (int i = 0; i < wgdList.size(); i++) {
+			if (i != ignoreLine) {
+				String parentName = wgdList.get(i).get(1);
+				String childName = wgdList.get(i).get(2);
+
+				Node wg = new Node();
+				wg.isWGM = true;
+				wg.setbLen(Double.parseDouble(wgdList.get(i).get(3)));
+				wg.setmaxNodeSize(this.getmaxNodeSize());
+
+				if (wgdList.get(i).get(0).equalsIgnoreCase("WGD")) {
+					wg.setName("WGD-" + parentName + "-" + childName);
+					wg.isWGD = true;
+					wg.multFactor = 2;
+				}
+
+				if (wgdList.get(i).get(0).equalsIgnoreCase("WGT")) {
+					wg.setName("WGT-" + parentName + "-" + childName);
+					wg.isWGT = true;
+					wg.multFactor = 3;
+				}
+				addWGMRec(this, parentName, childName, wg);
 			}
-			addWGMRecursively(this, parentName, childName, wgm);
 		}
 	}
 	
-	/**
-	 * Returns the length of path from a lead node to the root
-	 * @return
-	 */
+	public void deleteNode(Node n) {
 
-	public double calculateDistanceToRoot() {
+		if (n.getLeftChild() != null) {
+			
+			n.setLeftChild(null);
+		}
+		if (n.getRightChild() != null) {
+			
+			n.setRightChild(null);
+		}
 
-		double distance = this.getbranchLength();
+		if (n.getParent().getLeftChild()!=null && n.getParent().getLeftChild().getName().equalsIgnoreCase(n.getName())) {
+			
+			n.getParent().setLeftChild(null);
+			
+			if(n.getParent().getRightChild()!=null && !n.isWGD && !n.isWGT) { //parent was a normal node
+				
+				n.getParent().isVirtualNode=true; //for calculations of the likelihood
 
-		Node parentNode = this.getParent();
+			}
+			
+			if(n.getParent().getLeftChild()==null && n.getParent().getRightChild()==null) { //parent was virtual or WGM
+				
+				deleteNode(n.getParent());
+			}
+		}
 
-		while (!parentNode.isRoot) {
+		if (n.getParent().getRightChild()!=null && n.getParent().getRightChild().getName().equalsIgnoreCase(n.getName())) {
+			
+			n.getParent().setRightChild(null);
+			
+			if(n.getParent().getLeftChild()!=null && !n.isWGD && !n.isWGT) {
+				
+				n.getParent().isVirtualNode=true; //for calculations of the likelihood
 
-			distance += parentNode.getbranchLength();
+			}
+			
+			if(n.getParent().getLeftChild()==null && n.getParent().getRightChild()==null) {
+				deleteNode(n.getParent());
 
-			parentNode = parentNode.getParent();
+			}
+		}
+
+	}
+
+	public void deleteNodeFromTree(List<String> nodeNamesToDelete) {
+
+		for (String s : nodeNamesToDelete) {
+			
+			this.deleteNode(this.findNodeWithName(s));
+
+		}
+	}
+
+	// public void insertWGMsToTheTree_customMultFactor(List<List<String>> wgdList,
+	// double[] retentionRates)
+	//
+	// {
+	//
+	// if(retentionRates.length != wgdList.size()){
+	// System.out.println("WARNING: the length of multiplication factor's array and
+	// number of WGDs do not match!");
+	// }
+	//
+	// /* for each line of the list = each WGD:*/
+	//
+	// for (int i = 0; i < wgdList.size() ; i++) {
+	//
+	// String parentName = wgdList.get(i).get(1);
+	// String childName = wgdList.get(i).get(2);
+	//
+	// Node wg = new Node();
+	// wg.isWGM = true;
+	// wg.setbLen(Double.parseDouble(wgdList.get(i).get(3)));
+	// // becasue we call it with root.insertWGM.. , so the maxNodeSize of root is
+	// applied, which is set in newickparser while building tree
+	// wg.setmaxNodeSize(this.getmaxNodeSize());
+	//
+	// if (wgdList.get(i).get(0).equalsIgnoreCase("WGD")) {
+	// wg.setName("WGD-" + parentName + "-" + childName);
+	// wg.isWGD = true;
+	// wg.multFactor = 1+(1*retentionRates[i]);
+	// }
+	//
+	// if (wgdList.get(i).get(0).equalsIgnoreCase("WGT")) {
+	// wg.setName("WGT-" + parentName + "-" + childName);
+	// wg.isWGT = true;
+	// wg.multFactor = 1+(2*retentionRates[i]);
+	// }
+	// addWGMRec(this, parentName, childName, wg);
+	// }
+	// }
+
+	public void addWGMOnaSpecificBranch(Branch br, double blen) {
+
+		String parentName = br.getParent().getName();
+		String childName = br.getChild().getName();
+
+		System.out.println("adding WGD to" + br.getParent().getName() + "  " + br.getChild().getName());
+		Node wg = new Node();
+		wg.setName("WGD " + parentName + "-" + childName);
+		wg.isWGM = true;
+		/* For now we only be.ugent.psb.setas.bdmodel.test for WGDs */
+		wg.multFactor = 2;
+		wg.setbLen(blen);
+		wg.setmaxNodeSize(100);
+
+		addDepthSubTree(br.getChild(), 1);
+		wg.depth = (br.getParent().depth) + 1;
+
+		double oldBlen = br.getChild().getbLen();
+		br.getChild().setParent(wg);
+
+		if (br.getParent().getLeftChild() != null) {
+
+			if (br.getParent().getLeftChild().equals(br.getChild())) {
+
+				wg.setLeftChild(br.getChild());
+				wg.getLeftChild().setbLen(oldBlen - wg.getbLen());
+
+				wg.setParent(br.getParent());
+				br.getParent().setLeftChild(wg);
+			}
+		}
+
+		else if (br.getParent().getRightChild() != null) {
+			if (br.getParent().getRightChild().equals(br.getChild())) {
+
+				wg.setRightChild(br.getChild());
+				wg.getRightChild().setbLen(oldBlen - wg.getbLen());
+
+				wg.setParent(br.getParent());
+				br.getParent().setRightChild(wg);
+			}
+		}
+
+		addWGMRec(this, parentName, childName, wg);
+
+	}
+
+	/* finds maximum element of a queue */
+	public double findMaxQ(Queue<Double> q) {
+		int size = q.size();
+		double[] b = new double[size];
+
+		for (int k = 0; k < size; k++) {
+			b[k] = q.remove();
+		}
+		return FindMaxArray.findMaxValue(b);
+	}
+
+	public Queue<Double> allBlen() {
+		Queue<Double> queue = new LinkedList<Double>();
+		return allBlenRec(this, queue);
+	}
+
+	/** make a queue of all branch lengths in a tree */
+	private Queue<Double> allBlenRec(Node n, Queue<Double> queue) {
+
+		Node leftChild = n.getLeftChild();
+		Node rightChild = n.getRightChild();
+
+		if (leftChild != null) {
+			queue.add(leftChild.getbLen());
+			allBlenRec(leftChild, queue);
+		}
+
+		if (rightChild != null) {
+			queue.add(rightChild.getbLen());
+			allBlenRec(rightChild, queue);
+		}
+
+		return queue;
+	}
+
+	/** returns the maximum branch length of a tree rooted at Node n */
+	public double maxBlen() {
+		Queue<Double> qd = new LinkedList<Double>();
+		qd = this.allBlen();
+		double d = findMaxQ(qd);
+		return d;
+	}
+
+	public double calcDistToRoot() {
+
+		double distance = this.getbLen();
+
+		Node p = this.getParent();
+
+		while (p.isRoot == false) {
+
+			distance += p.getbLen();
+
+			p = p.getParent();
 		}
 		return distance;
 	}
 
-	/** same order as written in Newick format: left-right-root **/
+	public double calcMaxDisToRoot() {
+
+		ArrayList<Node> arln = postOrder(this);
+
+		double maxDist = arln.get(0).getDistToRoot();
+
+		for (int i = 1; i < arln.size(); i++) {
+
+			if (arln.get(i).getDistToRoot() > maxDist)
+
+			{
+				maxDist = arln.get(i).getDistToRoot();
+			}
+		}
+
+		return maxDist;
+	}
+
+	/*
+	 * To make all the leaves have the same distance to the root, for testing the
+	 * program with comparing the results with CAFE
+	 */
+	public void adjustBranchLengths(ArrayList<Node> leaves) {
+
+		double maxDisToRoot = this.calcMaxDisToRoot();
+
+		for (int i = 0; i < leaves.size(); i++) {
+
+			double oldBlen = leaves.get(i).getbLen();
+
+			double distance = leaves.get(i).calcDistToRoot();
+
+			double difference = maxDisToRoot - distance;
+
+			double newBlen = oldBlen + difference;
+			leaves.get(i).setbLen(newBlen);
+
+		}
+	}
+
+	// public void setMaxSizes(Node r, int maxSize) {
+	//
+	// int sizeLkArray=0;
+	// if (r != null) {
+	// r.setmaxNodeSize(maxSize);
+	//
+	// if(r.isWGM==false){
+	// sizeLkArray= maxSize;
+	// }
+	//
+	// else{
+	// sizeLkArray= (r.multFactor*maxSize);
+	// }
+	//
+	// r.lk= new double[sizeLkArray+1];
+	// Node left = r.getLeftChild();
+	// Node right = r.getRightChild();
+	// setMaxSizes(left,sizeLkArray);
+	// setMaxSizes(right,sizeLkArray);
+	//
+	// }
+	// }
+
+	// same order as written in Newick format: left-right-root
 	public ArrayList<Node> postOrder(Node root) {
 
-		Stack<Node> stackOneTemp = new Stack<Node>();
-		Stack<Node> stackTwoTemp = new Stack<Node>();
+		Stack<Node> stack = new Stack<Node>();
+		Stack<Node> stackTwo = new Stack<Node>();
 
-		ArrayList<Node> arrayListOfNodesInPostOrder = new ArrayList<Node>();
+		ArrayList<Node> arln = new ArrayList<Node>();
 
 		if (root != null) {
-			stackOneTemp.push(root);
+			stack.push(root);
 
-			while (!stackOneTemp.empty()) {
-				root = stackOneTemp.pop();
-				stackTwoTemp.push(root);
+			while (!stack.empty()) {
+				root = stack.pop();
+				stackTwo.push(root);
 
 				if (root.getLeftChild() != null) {
-					stackOneTemp.push(root.getLeftChild());
+					stack.push(root.getLeftChild());
 				}
 				if (root.getRightChild() != null) {
-					stackOneTemp.push(root.getRightChild());
+					stack.push(root.getRightChild());
 				}
 			}
 		}
 
-		while (!stackTwoTemp.empty()) {
-			arrayListOfNodesInPostOrder.add(stackTwoTemp.pop());
+		while (!stackTwo.empty()) {
+			arln.add(stackTwo.pop());
 		}
-		return arrayListOfNodesInPostOrder;
+		return arln;
 	}
 
 	public ArrayList<Branch> findAllBranches(Node root) {
@@ -448,4 +774,55 @@ public class Node {
 		return arln;
 	}
 
+	// public static void main(String args[]) {
+	// NewickParser np = new NewickParser();
+	// Node root = np
+	// .buildTree("/home/setas/workspace/BirthDeathModel/src/Files/Trees/Pruned37To14ToEudicotTreeMGCF5");
+	// ArrayList<Node> leaves = new ArrayList<Node>();
+	// leaves = root.getLeaves();
+	//
+	// root.setNumberOfLeaves(leaves.size());
+	//
+	// int[] testObs = new int[root.numberOfLeaves];
+	//
+	// for (int i = 0; i < testObs.length; i++) {
+	// testObs[i] = i + 1;
+	// // gives the number of leaf because we start at 0
+	// }
+	// root.setLeafValues(testObs);
+	//
+	// WGMparser wgm = new WGMparser();
+	// List<List<String>> wgdList = wgm
+	// .readInputFile("/home/setas/workspace/BirthDeathModel/src/Files/WGMs/WGDs-avg-pruned37MGCF5ToEudicots-Clean");
+	//
+	// root.insertWGMsToTheTree(wgdList);
+	//
+	// ArrayList<Node> arln= root.postOrder(root);
+	//
+	//// for(int i=0; i<arln.size();i++){
+	////
+	//// System.out.println(arln.get(i).getName());
+	//// }
+	// double max = root.maxBlen();
+	//
+	//// To prepare the tree to be.ugent.psb.setas.bdmodel.test with cafe
+	//// root.adjustBranchLengths(leaves);
+	////
+	//// ArrayList<Node> arp = root.postOrder(root);
+	//// for(int i=0; i<arp.size();i++){
+	////
+	////// arp.get(i).setbLen(arp.get(i).getbLen()*1000000);
+	////
+	//// System.out.println(arp.get(i).getName()+" "+ arp.get(i).getbLen());
+	//// }
+	// ArrayList<Branch> arBranches= root.findAllBranches(root);
+	//// System.out.println(arBranches.size());
+	//
+	//// for(int i=0; i<arBranches.size();i++){
+	////
+	//// System.out.println(arBranches.get(i).getParent()+ "
+	// "+arBranches.get(i).getChild()+" "+ arBranches.get(i).getBranchLenght());ss
+	//// }
+	//
+	// }
 }
