@@ -6,8 +6,10 @@ Given a species tree (with annotated Whole-Genome Multiplication (WGM) nodes) an
 
 Additionally, this repository provides tools for reverse-engineering WGMs using a combination of stochastic birth-death (BD) modeling and a complementary log-likelihood ratio test (cLRT). The cLRT pipeline leverages reciprocally retained (RR) gene families, inferred through BD modeling, as WGM markers to detect or reject WGM events along branches of a phylogenetic tree.
 
-For more information regarding the proposed mathematical models please see my PhD thesis (http://hdl.handle.net/1854/LU-8637576) chapter 2 and chapter 4, 
+For more information regarding the proposed mathematical models please see my PhD thesis (http://hdl.handle.net/1854/LU-8637576)
+
 Chapter2: Reciprocally Retained Genes in the Angiosperm Lineage Show the Hall-marks of Dosage Balance Sensitivity (https://pubmed.ncbi.nlm.nih.gov/29061868/)
+
 Chapter 4: Reverse Engineering of WGMs
 
 The project includes implementations of:
