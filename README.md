@@ -1,4 +1,4 @@
-# Reverse Engineering Whole-Genome Multiplications (WGMs)
+# Birth-Death Model of Gene Family Evolution and Detecting Whole-Genome Multiplications (WGMs) using Reciprocally Retained Gene Families
 
 ## About
 
