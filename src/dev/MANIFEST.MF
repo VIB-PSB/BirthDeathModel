@@ -1,3 +1,0 @@
-Manifest-Version: 1.0
-Main-Class: testing.Main
-Class-Path: lib/colt-1.2.0.jar

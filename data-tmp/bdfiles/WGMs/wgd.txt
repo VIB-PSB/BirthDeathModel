@@ -1,2 +1,0 @@
-WGD,R,A,6
-WGD,B,F,2
